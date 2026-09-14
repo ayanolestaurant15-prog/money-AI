@@ -1,0 +1,9 @@
+{
+  "name": "AIレシート読み込み君",
+  "short_name": "読み込み君",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3ece2",
+  "theme_color": "#c44b24",
+  "lang": "ja"
+}
