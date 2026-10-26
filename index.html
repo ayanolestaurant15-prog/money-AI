@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#c44b24" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="AIレシート読み込み君" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <title>AIレシート読み込み君</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;600&family=Shippori+Mincho:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>柿</text></svg>" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="rail">
+        <div class="brand">
+          <p class="brand-kana">AI RECEIPT</p>
+          <h1>AIレシート読み込み君</h1>
+          <p class="brand-sub">レシートを撮って、そのまま記帳</p>
+        </div>
+        <nav class="nav" id="nav">
+          <button class="nav-btn has-icon is-active" data-view="dashboard" aria-label="概要" title="概要">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="5" width="18" height="16" rx="2"></rect>
+              <path d="M3 10h18M8 3v4M16 3v4"></path>
+            </svg>
+          </button>
+          <button class="nav-btn has-icon" data-view="capture" aria-label="レシート取込" title="レシート取込">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 3h10v18l-2.5-1.6L12 21l-2.5-1.6L7 21V3z"></path>
+              <path d="M10 8h4M10 12h4M10 16h3"></path>
+            </svg>
+          </button>
+          <button class="nav-btn has-icon" data-view="ledger" aria-label="明細" title="明細">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="6" y="3" width="13" height="18" rx="2"></rect>
+              <path d="M9 3v18M12 8h5M12 12h5"></path>
+            </svg>
+          </button>
+          <button class="nav-btn" data-view="settings">設定</button>
+        </nav>
+        <div class="rail-month">
+          <button type="button" class="ghost" id="prev-month" aria-label="前月">‹</button>
+          <div>
+            <p class="muted">表示月</p>
+            <p class="rail-month-label" id="month-label">2026年9月</p>
+          </div>
+          <button type="button" class="ghost" id="next-month" aria-label="翌月">›</button>
+        </div>
+        <div class="rail-total">
+          <p class="muted">今月の支出</p>
+          <p class="rail-yen" id="rail-expense">¥0</p>
+        </div>
+      </aside>
+
+      <main class="stage">
+        <header class="topbar">
+          <p class="eyebrow" id="view-eyebrow">今月のカレンダー</p>
+          <h2 id="view-title">概要</h2>
+          <button type="button" class="primary" id="quick-capture">レシートを取り込む</button>
+        </header>
+
+        <section class="view is-active" id="view-dashboard">
+          <div class="stat-grid" id="stat-grid"></div>
+          <div class="dash-stack">
+            <article class="panel cal-panel">
+              <div class="panel-head">
+                <h3>カレンダー</h3>
+                <p class="cal-legend">
+                  <span class="cal-legend-item is-recurring">定額支出</span>
+                  <span class="cal-legend-item is-planned">予定の支出</span>
+                </p>
+              </div>
+              <div id="dash-calendar"></div>
+            </article>
+            <div class="split">
+              <article class="panel panel-recurring">
+                <div class="panel-head">
+                  <h3>毎月の定額支出</h3>
+                  <p class="muted">家賃・通信など</p>
+                </div>
+                <form id="recurring-form" class="plan-form">
+                  <div class="grid-2">
+                    <label>内容
+                      <input name="name" required placeholder="例：家賃" />
+                    </label>
+                    <label>金額
+                      <input name="amount" type="number" step="1" min="0" required placeholder="0" />
+                    </label>
+                  </div>
+                  <div class="grid-2">
+                    <label>費目
+                      <select name="category"></select>
+                    </label>
+                    <label>支払日（毎月）
+                      <input name="day" type="number" min="1" max="31" value="1" placeholder="1" />
+                    </label>
+                  </div>
+                  <div class="form-actions">
+                    <button type="button" class="secondary" id="cancel-recurring" hidden>キャンセル</button>
+                    <button type="submit" class="primary is-mark" id="save-recurring" aria-label="追加">
+                      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+                    </button>
+                  </div>
+                </form>
+                <div id="recurring-list"></div>
+              </article>
+              <article class="panel panel-planned">
+                <div class="panel-head">
+                  <h3>予定の支出</h3>
+                  <p class="muted">選択中の月</p>
+                </div>
+                <form id="planned-form" class="plan-form">
+                  <label>日程
+                    <input name="date" type="date" required />
+                  </label>
+                  <div class="grid-2">
+                    <label>内容
+                      <input name="name" required placeholder="例：車検" />
+                    </label>
+                    <label>金額
+                      <input name="amount" type="number" step="1" min="0" required placeholder="0" />
+                    </label>
+                  </div>
+                  <div class="form-actions">
+                    <button type="button" class="secondary" id="cancel-planned" hidden>キャンセル</button>
+                    <button type="submit" class="primary is-mark" id="save-planned" aria-label="追加">
+                      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+                    </button>
+                  </div>
+                </form>
+                <div id="planned-list"></div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" id="view-capture" hidden>
+          <div class="capture-layout" id="capture-home">
+            <article class="dropzone" id="dropzone">
+              <input id="file-input" type="file" accept="image/*" hidden />
+              <div class="stamp">記</div>
+              <h3>レシートを撮影する</h3>
+              <p class="drop-hint">パソコンなら画像をドロップ。スマホなら下のカメラを使います。</p>
+              <div class="row-gap capture-actions">
+                <button type="button" class="primary" id="pick-camera">カメラで撮る</button>
+                <button type="button" class="secondary" id="pick-file">画像を選ぶ</button>
+              </div>
+              <input id="camera-input" type="file" accept="image/*" capture="environment" hidden />
+            </article>
+            <article class="panel tips">
+              <h3>うまく読むコツ</h3>
+              <ul>
+                <li>店名、日付、合計金額が見えるように撮る</li>
+                <li>影や反射を避け、文字が潰れていないか確認</li>
+                <li>解析後に品目や費目は必ず確認してから保存</li>
+              </ul>
+            </article>
+          </div>
+
+          <div class="review-layout is-hidden" id="capture-review">
+            <article class="panel preview-panel">
+              <div class="panel-head">
+                <h3>レシート</h3>
+                <button type="button" class="text-btn" id="reset-capture">やり直す</button>
+              </div>
+              <div class="preview-frame">
+                <img id="receipt-preview" alt="アップロードしたレシート" />
+                <div class="scan-veil" id="scan-veil">
+                  <p>読み取り中…</p>
+                </div>
+              </div>
+            </article>
+            <article class="panel form-panel">
+              <div class="panel-head">
+                <h3>解析結果</h3>
+                <p class="muted" id="parse-status">OpenAI が内容を読み取っています</p>
+              </div>
+              <form id="entry-form">
+                <div class="grid-2">
+                  <label>店名・支払先
+                    <input name="merchant" required placeholder="例：ファミリーマート" />
+                  </label>
+                  <label>日付
+                    <input name="date" type="date" required />
+                  </label>
+                  <label>費目
+                    <select name="category"></select>
+                  </label>
+                  <label>支払い方法
+                    <select name="paymentMethod">
+                      <option value="">（未入力）</option>
+                      <option>現金</option>
+                      <option>クレジットカード</option>
+                      <option>電子マネー</option>
+                      <option>QRコード決済</option>
+                      <option>その他</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="items-block">
+                  <div class="panel-head tight">
+                    <h4>品目</h4>
+                    <button type="button" class="mark-btn" id="add-item" aria-label="行を追加" title="行を追加">
+                      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+                    </button>
+                  </div>
+                  <div class="table-wrap">
+                    <table class="item-table">
+                      <thead>
+                        <tr>
+                          <th>品名</th>
+                          <th>数量</th>
+                          <th>金額</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody id="item-body"></tbody>
+                    </table>
+                  </div>
+                </div>
+                <div class="grid-3">
+                  <label>小計
+                    <input name="subtotal" type="number" step="1" />
+                  </label>
+                  <label>税
+                    <input name="tax" type="number" step="1" />
+                  </label>
+                  <label>合計
+                    <input name="amount" type="number" step="1" required />
+                  </label>
+                </div>
+                <label>メモ
+                  <textarea name="notes" rows="2" placeholder="必要なら補足"></textarea>
+                </label>
+                <div class="form-actions">
+                  <button type="button" class="secondary" id="cancel-review">破棄</button>
+                  <button type="submit" class="primary" id="save-entry">家計簿に保存</button>
+                </div>
+              </form>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" id="view-ledger" hidden>
+          <div class="toolbar">
+            <input id="search" type="search" placeholder="店名や品目で検索" />
+            <select id="filter-category">
+              <option value="">すべての費目</option>
+            </select>
+            <button type="button" class="secondary" id="manual-entry">手入力</button>
+            <button type="button" class="secondary" id="export-csv">CSV出力</button>
+          </div>
+          <article class="panel">
+            <div id="ledger-table"></div>
+          </article>
+        </section>
+
+        <section class="view" id="view-settings" hidden>
+          <article class="panel settings-panel">
+            <h3>OpenAI API</h3>
+            <p class="muted" id="settings-hint">キーはこのパソコンに保存し、スマホからも同じ家計簿を使えます。</p>
+            <label>APIキー
+              <input id="api-key" type="password" placeholder="sk-..." autocomplete="off" />
+            </label>
+            <label>モデル
+              <select id="model">
+                <option value="gpt-4o-mini">gpt-4o-mini（安くて速い）</option>
+                <option value="gpt-4o">gpt-4o（高精度）</option>
+                <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+                <option value="gpt-4.1">gpt-4.1</option>
+              </select>
+            </label>
+            <div class="form-actions">
+              <button type="button" class="primary" id="save-settings">設定を保存</button>
+            </div>
+          </article>
+          <article class="panel settings-panel" id="phone-card" hidden>
+            <h3 id="phone-card-title">スマホで開く</h3>
+            <p class="muted" id="phone-card-copy">同じ Wi-Fi に繋いだスマホで、このQRを読むか URL を開きます。パソコン側で start.bat を起動したままにしてください。</p>
+            <img id="phone-qr" class="phone-qr" alt="スマホ用QRコード" />
+            <p class="phone-url" id="phone-url"></p>
+            <div class="form-actions">
+              <button type="button" class="secondary" id="copy-phone-url">URLをコピー</button>
+            </div>
+          </article>
+          <article class="panel settings-panel">
+            <h3>データ</h3>
+            <p class="muted" id="data-hint">記録はパソコンの data フォルダに保存され、スマホと共有されます。</p>
+            <div class="form-actions">
+              <button type="button" class="secondary" id="load-sample">サンプルデータを入れる</button>
+              <button type="button" class="danger" id="clear-data">すべての記録を削除</button>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" id="toast" hidden></div>
+    <div class="pin-gate" id="pin-gate" hidden>
+      <form class="panel settings-panel" id="pin-form">
+        <h3>暗証番号</h3>
+        <p class="muted">Netlify に設定した ACCESS_PIN を入力してください。</p>
+        <label>PIN
+          <input id="pin-input" type="password" autocomplete="current-password" />
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="primary">入る</button>
+        </div>
+      </form>
+    </div>
+    <div class="modal" id="modal" hidden>
+      <div class="modal-card" id="modal-card"></div>
+    </div>
+
+    <script src="js/db.js"></script>
+    <script src="js/openai.js"></script>
+    <script src="js/store.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>

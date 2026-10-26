@@ -1,0 +1,16 @@
+.env
+.env.*
+!.env.example
+netlify-deploy/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+data/
+*.db
+uploads/
+.DS_Store
+Thumbs.db
+node_modules/
+dist/
